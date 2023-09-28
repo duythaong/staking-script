@@ -10,6 +10,7 @@ const msg = new Message();
 
 const data = {
   CPP: process.env.CPP,
+  USDC: process.env.USDC,
   STAKING: process.env.STAKING,
   MULTI_TRANSFER: process.env.MULTI_TRANSFER,
   price: utils.parseUnits(`${process.env.GWEI}`, "gwei"), //in gwei
@@ -44,6 +45,43 @@ export default class Network {
     }
   }
 
+  async unstake() {
+    const accounts = new Cache();
+    await accounts.load(`accounts.json`);
+    const length = accounts.data.length;
+    let ps = [];
+    for (let i = 0; i < length; i++) {
+      try {
+        let wallet = new Wallet(accounts.data[i].privateKey);
+        let account = wallet.connect(this.node);
+        const contract = new Contract(data.STAKING, ABI.staking, account);
+        const [ids] = await contract.getStakingDetails(
+          accounts.data[i].address,
+          data.USDC
+        );
+        console.log(accounts.data[i].address)
+        console.log(ids)
+        if (ids.length > 0) {
+          for (let i = 0; i < ids.length; i++) {
+            const tx = await contract.unstake(ids[i], {
+              gasPrice: data.price,
+            });
+            ps.push(tx.wait());
+            if (i + 1 == ids.length) {
+              await Promise.all(ps);
+              ps = [];
+              msg.success(
+                `[debug::transact] TX has been submitted. Waiting for response..`
+              );
+            }
+          }
+        }
+      } catch (error) {
+        console.log(error);
+      }
+    }
+  }
+
   async stakeee() {
     const accounts = new Cache();
     await accounts.load(`accounts.json`);
@@ -74,10 +112,7 @@ export default class Network {
   }
 
   async multiTransfer() {
-    console.log(this.account.address);
-    console.log(this.multiTransferContract.address);
     const [, valueAmount] = await this.multiTransferContract.viewAmount();
-    console.log(valueAmount);
     const ethPrice = Number(utils.formatEther(valueAmount));
     const accounts = new Cache();
     await accounts.load(`accounts.json`);

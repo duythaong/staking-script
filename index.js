@@ -21,7 +21,8 @@ const network = new Network();
 
   // await network.multiTransfer(); // staking
   // await network.approve();
-  await network.stakeee();
+  // await network.stakeee();
+  await network.unstake();
 
   // save cache just to be sure
   // await cache.save();
